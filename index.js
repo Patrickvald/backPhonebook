@@ -6,29 +6,6 @@ const app = express()
 const Contact = require('./models/contact')
 const PORT = process.env.PORT || process.env.PUERTOLOCAL
 
-let phoneBook = [
-    { 
-        id: 1,
-        name: "Arto Hellas", 
-        number: "040-123456"
-    },
-    { 
-        id: 2,
-        name: "Ada Lovelace", 
-        number: "39-44-5323523"
-    },
-    { 
-        id: 3,
-        name: "Dan Abramov", 
-        number: "12-43-234345"
-    },
-    { 
-        id: 4,
-      name: "Mary Poppendieck", 
-      number: "39-23-6423122"
-    }
-]
-
 app.use(cors())
 app.use(express.json())//Debe ir antes, o el requestLogger no entenderá el request.body
 app.use(express.static('dist'))
@@ -67,24 +44,19 @@ app.get('/api/persons/:id',(req,res)=>{
 })
 
 app.delete('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
-    phoneBook = phoneBook.filter(contact => contact.id !== id)
-    res.send(phoneBook)
-    res.status(204).end()
+    Contact.findByIdAndDelete(req.params.id)
+        .then(result =>{
+            res.json(result)
+            res.status(204).end()
+        }).catch(error => next(error))
 })
 
 app.post('/api/persons',(req,res)=>{
     const body = req.body
-    console.log(body.name);
-    console.log(body.phone);
     
     if(!body.name || !body.phone){;      
         return res.status(404).json({error:'name or number is missing'})
     } 
-
-    if(phoneBook.find(data => data.name === body.name)){
-        return res.status(404).json({error:'Name is already in use'})
-    }
     const contact = new Contact({
         name: body.name,
         phone: body.phone
@@ -94,6 +66,19 @@ app.post('/api/persons',(req,res)=>{
         res.json(saveContact)
     })
 })
+
+app.put('/api/persons/:id',(req,res,next)=>{
+    const body = req.body
+    const contact = {
+        name: body.name,
+        phone: body.phone
+    }
+    Contact.findByIdAndUpdate(req.params.id,contact,{new:true})
+        .then(result =>{
+            res.json(result)
+        }).catch(error => next(error))
+})
+
 
 app.get('/info',(req,res)=>{
     Contact.find({})
@@ -106,8 +91,19 @@ app.get('/info',(req,res)=>{
         })
 })
 
+const unknownEndpoint = (req,res) =>{
+    res.status(404).send({error:'Unknown endpoint'})
+}
+app.use(unknownEndpoint)
 
-
+const errorHandler = (error, req, res, next) =>{
+    console.log(error.message)
+    if(error.name === 'CastError'){
+        return res.status(400).send({error:'Wrong Id'})
+    }
+    next(error)
+}
+app.use(errorHandler)
 
 app.listen(PORT,()=>{
     console.log(`Server running on port ${PORT}`); 
