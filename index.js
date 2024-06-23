@@ -1,8 +1,10 @@
 const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
+const dotenv = require('dotenv').config()
 const app = express()
-const PORT = process.env.PORT || 3001
+const Contact = require('./models/contact')
+const PORT = process.env.PORT || process.env.PUERTOLOCAL
 
 let phoneBook = [
     { 
@@ -30,7 +32,6 @@ let phoneBook = [
 app.use(cors())
 app.use(express.json())//Debe ir antes, o el requestLogger no entenderá el request.body
 app.use(express.static('dist'))
-
 // We have to use one token to pick up the post body
 morgan.token('body', (req) => {
     return req.method === 'POST' ? JSON.stringify(req.body) : '';
@@ -48,22 +49,21 @@ app.use((req,res,next)=>{
     next()
 })
  */
+
 app.get('/',(req,res)=>{
     res.send('<h1>Hello World¡</h1>')
 })
 
 app.get('/api/persons',(req,res) =>{
-    res.json(phoneBook)
+    Contact.find({}).then(contacts =>
+        res.json(contacts)
+    )
 })
 
 app.get('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
-    const contact = phoneBook.find(data => data.id === id)
-    if(contact){
+    Contact.findById(req.params.id).then(contact =>{
         res.json(contact)
-    }else{
-        res.status(404).end()
-    }
+    })
 })
 
 app.delete('/api/persons/:id',(req,res)=>{
@@ -73,10 +73,6 @@ app.delete('/api/persons/:id',(req,res)=>{
     res.status(204).end()
 })
 
-const generatorId = ()=>{
-    const id = Math.floor(Math.random()*99999)
-    return id
-}
 app.post('/api/persons',(req,res)=>{
     const body = req.body
     console.log(body.name);
@@ -89,20 +85,25 @@ app.post('/api/persons',(req,res)=>{
     if(phoneBook.find(data => data.name === body.name)){
         return res.status(404).json({error:'Name is already in use'})
     }
-    const newContact ={
-        id:generatorId(),
-        name:body.name,
+    const contact = new Contact({
+        name: body.name,
         phone: body.phone
-    }
+    })
     
-    phoneBook = phoneBook.concat(newContact)
-    res.json(phoneBook)
+    contact.save().then(saveContact =>{
+        res.json(saveContact)
+    })
 })
 
 app.get('/info',(req,res)=>{
-    const length = phoneBook.length
-    const date = new Date()
-    res.send(`<p>Phonebook has info for ${length} people. <br> Consulted on ${date}</p>`)
+    Contact.find({})
+        .then(contacts =>{
+            const length = contacts.length
+            const date = new Date()
+            res.send(`<p>Phonebook has info for ${length} people. <br> Consulted on ${date}</p>`)
+        }).catch(error =>{
+            res.status(500).send('Error getting the info') 
+        })
 })
 
 
