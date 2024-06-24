@@ -51,12 +51,9 @@ app.delete('/api/persons/:id',(req,res)=>{
         }).catch(error => next(error))
 })
 
-app.post('/api/persons',(req,res)=>{
+app.post('/api/persons',(req,res, next)=>{
     const body = req.body
     
-    if(!body.name || !body.phone){;      
-        return res.status(404).json({error:'name or number is missing'})
-    } 
     const contact = new Contact({
         name: body.name,
         phone: body.phone
@@ -64,7 +61,7 @@ app.post('/api/persons',(req,res)=>{
     
     contact.save().then(saveContact =>{
         res.json(saveContact)
-    })
+    }).catch(error => next(error))
 })
 
 app.put('/api/persons/:id',(req,res,next)=>{
@@ -73,7 +70,7 @@ app.put('/api/persons/:id',(req,res,next)=>{
         name: body.name,
         phone: body.phone
     }
-    Contact.findByIdAndUpdate(req.params.id,contact,{new:true})
+    Contact.findByIdAndUpdate(req.params.id,contact,{new:true, runValidators: true, context:'query'})
         .then(result =>{
             res.json(result)
         }).catch(error => next(error))
@@ -100,6 +97,8 @@ const errorHandler = (error, req, res, next) =>{
     console.log(error.message)
     if(error.name === 'CastError'){
         return res.status(400).send({error:'Wrong Id'})
+    }else if(error.name === 'ValidationError'){
+        return res.status(400).json({error: error.message})
     }
     next(error)
 }
